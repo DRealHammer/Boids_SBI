@@ -2,7 +2,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 import torch
 import os
-import io
+from PIL import Image
 import pandas as pd
 import numpy as np
 
@@ -41,13 +41,13 @@ class BoidImagesDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        img_name = f'img{idx}.png'
-        image = io.imread(img_name)
+        img_name = f'{self.root_dir}/images/img{idx}.png'
+        image = Image.open(img_name)
         params = self.params.iloc[idx]
-        params = np.array([params], dtype=float).reshape(-1)
-        sample = {'image': image, 'params': params}
+        params = np.array([params], dtype=np.float32).reshape(-1)
 
         if self.transform:
-            sample = self.transform(sample)
+            image = self.transform(image)
 
-        return sample
+        return [params, image]
+        #return {'image': image, 'params': params}
