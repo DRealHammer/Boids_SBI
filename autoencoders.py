@@ -16,8 +16,6 @@ import numpy as np
 import os
 import io
 
-Tensor = TypeVar('torch.tensor')
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # from https://github.com/AntixK/PyTorch-VAE/blob/master/models
 
@@ -91,7 +89,7 @@ class VanillaVAE(nn.Module):
                                       kernel_size= 3, padding= 1),
                             nn.Tanh())
 
-    def encode(self, input: Tensor) -> List[Tensor]:
+    def encode(self, input: torch.Tensor) -> List[torch.Tensor]:
         """
         Encodes the input by passing through the encoder network
         and returns the latent codes.
@@ -108,7 +106,7 @@ class VanillaVAE(nn.Module):
 
         return [mu, log_var]
 
-    def decode(self, z: Tensor) -> Tensor:
+    def decode(self, z: torch.Tensor) -> torch.Tensor:
         """
         Maps the given latent codes
         onto the image space.
@@ -121,7 +119,7 @@ class VanillaVAE(nn.Module):
         result = self.final_layer(result)
         return result
 
-    def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
+    def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         """
         Reparameterization trick to sample from N(mu, var) from
         N(0,1).
@@ -133,7 +131,7 @@ class VanillaVAE(nn.Module):
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def forward(self, input: Tensor, **kwargs) -> List[Tensor]:
+    def forward(self, input: torch.Tensor, **kwargs) -> List[torch.Tensor]:
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
         return  [self.decode(z), input, mu, log_var]
@@ -164,7 +162,7 @@ class VanillaVAE(nn.Module):
 
     def sample(self,
                num_samples:int,
-               current_device: int, **kwargs) -> Tensor:
+               current_device: int, **kwargs) -> torch.Tensor:
         """
         Samples from the latent space and return the corresponding
         image space map.
@@ -180,7 +178,7 @@ class VanillaVAE(nn.Module):
         samples = self.decode(z)
         return samples
 
-    def generate(self, x: Tensor, **kwargs) -> Tensor:
+    def generate(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
         """
         Given an input image x, returns the reconstructed image
         :param x: (Tensor) [B x C x H x W]
