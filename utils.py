@@ -9,10 +9,22 @@ import numpy as np
 def displayTensorImage(img, axis):
     axis.imshow(transforms.ToPILImage()(img), interpolation="nearest")
 
+class ZeroChannelTransform():
+    def __init__(self, idx, p=0.5):
+        self.idx = idx
+        self.p = p
+
+    def __call__(self, x):
+        return x[:, self.idx] * (torch.rand(len(x)) > self.p)[:, None]
+    
+
+
 train_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(p=0.5),
     transforms.RandomVerticalFlip(p=0.5),
-    transforms.ToTensor()])
+    transforms.GaussianBlur(kernel_size=3),
+    transforms.ToTensor(),
+    ZeroChannelTransform(2)])
 
 valid_transform = transforms.Compose([
     transforms.ToTensor()
