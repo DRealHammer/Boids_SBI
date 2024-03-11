@@ -135,13 +135,15 @@ class RealNVP(torch.nn.Module):
         return samples
 
 class LightningINN(L.LightningModule):
-    def __init__(self, inn: RealNVP):
+    def __init__(self, inn: RealNVP, encoder):
         super().__init__()
 
         self.inn = inn
+        self.encoder = encoder
 
     def training_step(self, batch):
-        x, conditions = batch      
+        x, conditions = batch    
+        conditions = self.encoder(conditions)[0]  
                             
         size = x.shape[0]
         z = x
