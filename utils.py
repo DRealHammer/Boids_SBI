@@ -15,8 +15,8 @@ class ZeroChannelTransform():
         self.p = p
 
     def __call__(self, x):
-        return x[:, self.idx] * (torch.rand(len(x)) > self.p)[:, None]
-    
+        x[:, self.idx] = x[:, self.idx] * (torch.rand(len(x)) > self.p)[:, None]
+        return x
 
 
 train_transform = transforms.Compose([
@@ -24,7 +24,8 @@ train_transform = transforms.Compose([
     transforms.RandomVerticalFlip(p=0.5),
     transforms.GaussianBlur(kernel_size=3),
     transforms.ToTensor(),
-    ZeroChannelTransform(2)])
+    ZeroChannelTransform(2)
+    ])
 
 valid_transform = transforms.Compose([
     transforms.ToTensor()
