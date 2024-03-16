@@ -9,7 +9,7 @@ import numpy as np
 def displayTensorImage(img, axis):
     axis.imshow(transforms.ToPILImage()(img), interpolation="nearest")
 
-class ZeroChannelTransform():
+class RandomZeroChannel():
     def __init__(self, idx, p=0.5):
         self.idx = idx
         self.p = p
@@ -22,9 +22,9 @@ class ZeroChannelTransform():
 train_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(p=0.5),
     transforms.RandomVerticalFlip(p=0.5),
-    transforms.GaussianBlur(kernel_size=3),
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.5),
     transforms.ToTensor(),
-    ZeroChannelTransform(2)
+    RandomZeroChannel(2, p=0.5)
     ])
 
 valid_transform = transforms.Compose([
