@@ -33,10 +33,12 @@ class AffineCouplingLayer(torch.nn.Module):
             torch.nn.Tanh()
         )
 
-        self.rotation = torch.eye(input_size)
+        rotation = torch.eye(input_size)
 
         if rotate:
-            self.rotation = torch.linalg.qr(torch.randn(input_size, input_size))[0]
+            rotation = torch.linalg.qr(torch.randn(input_size, input_size))[0]
+
+        self.register_buffer('rotation', rotation)
 
 
     def get_transforms(self, X, cond):
@@ -130,7 +132,7 @@ class RealNVP(torch.nn.Module):
     def sample(self, num_samples, conditions):
         normal_samples = torch.randn((num_samples, self.input_size))
             
-        samples = self.decode(normal_samples, conditions)
+        samples = self.inverse(normal_samples, conditions)
         
         return samples
 
