@@ -18,6 +18,11 @@ class RandomZeroChannel():
         x[:, self.idx] = x[:, self.idx] * (torch.rand(len(x)) > self.p)[:, None]
         return x
 
+simple_train_transform = transforms.Compose([
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomVerticalFlip(p=0.5),
+    transforms.ToTensor(),
+    ])
 
 train_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(p=0.5),
