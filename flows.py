@@ -156,6 +156,9 @@ class LightningINN(L.LightningModule):
             
         loss = ( 1 / size ) * ( ( torch.sum(torch.square(z)) / 2 ) - log_det_jac )
         
+        # Logging to TensorBoard (if installed) by default
+        self.log("train_loss", loss)
+
         return loss
 
     def configure_optimizers(self):
