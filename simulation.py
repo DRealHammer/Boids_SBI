@@ -330,3 +330,14 @@ def createDataset(foldername, N_simulations, space_size=64):
 
         boid_simulation.finalStateImage(f'{foldername}/images/img{i}.png')
 
+import sys
+if __name__ == '__main__':
+
+    if len(sys.argv) > 2:
+        folder = sys.argv[1]
+        N_simulations = int(sys.argv[2])
+
+        createDataset(folder, N_simulations)
+
+    else:
+        print("Please enter a foldername and the required dataset size.")
