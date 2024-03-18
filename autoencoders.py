@@ -188,9 +188,11 @@ class VanillaVAE(nn.Module):
 
 # define the LightningModule
 class LightningAutoEncoder(L.LightningModule):
-    def __init__(self, autoencoder: VanillaVAE):
+    def __init__(self, autoencoder_class: nn.Module, in_channels: int, latent_dim: int, hidden_dims: List = None):
         super().__init__()
-        self.autoencoder = autoencoder
+
+        self.save_hyperparameters()
+        self.autoencoder = autoencoder_class(in_channels, latent_dim, hidden_dims)
 
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
