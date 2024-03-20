@@ -2,32 +2,18 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from typing import *
-from torch.utils.data import Dataset
-import torchvision.transforms as transforms
-
-from torch.utils.data import DataLoader
 
 import lightning as L
 
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-import os
-import io
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # from https://github.com/AntixK/PyTorch-VAE/blob/master/models
+# define the LightningModule
+class LightningVAE(L.LightningModule):
+    def __init__(self, in_channels: int, latent_dim: int, hidden_dims: List = None, lr: float = 1e-4):
+        super().__init__()
 
-
-class VanillaVAE(nn.Module):
-
-
-    def __init__(self,
-                 in_channels: int,
-                 latent_dim: int,
-                 hidden_dims: List = None,
-                 **kwargs) -> None:
-        super(VanillaVAE, self).__init__()
+        self.save_hyperparameters()
+        self.lr = lr
 
         self.latent_dim = latent_dim
 
@@ -88,6 +74,7 @@ class VanillaVAE(nn.Module):
                                       kernel_size= 3, padding= 1),
                             nn.Tanh())
 
+        
     def encode(self, input: torch.Tensor) -> List[torch.Tensor]:
         """
         Encodes the input by passing through the encoder network
@@ -186,27 +173,169 @@ class VanillaVAE(nn.Module):
 
         return self.forward(x)[0]
 
-# define the LightningModule
-class LightningAutoEncoder(L.LightningModule):
-    def __init__(self, autoencoder_class: nn.Module, in_channels: int, latent_dim: int, hidden_dims: List = None):
-        super().__init__()
-
-        self.save_hyperparameters()
-        self.autoencoder = autoencoder_class(in_channels, latent_dim, hidden_dims)
 
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
         # it is independent of forward
-        x, _ = batch
-        mu, var = self.autoencoder.encode(x)
-        x_hat = self.autoencoder.decode(mu)
+        param, img = batch
+        mu, var = self.encode(img)
+        x_hat = self.decode(mu)
 
-        loss = self.autoencoder.loss_function(x_hat, x, mu, var, M_N=1)['loss']
+        loss = self.loss_function(x_hat, img, mu, var, M_N=1)['loss']
 
         # Logging to TensorBoard (if installed) by default
         self.log("train_loss", loss)
         return loss
+    
+    def validation_step(self, batch):
+        # training_step defines the train loop.
+        # it is independent of forward
+        param, img = batch
+        mu, var = self.encode(img)
+        x_hat = self.decode(mu)
+
+        loss = self.loss_function(x_hat, img, mu, var, M_N=1)['loss']
+
+        # Logging to TensorBoard (if installed) by default
+        self.log("val_loss", loss)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.autoencoder.parameters(), lr=1e-4)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
+    
+    def latent(self, input: torch.Tensor) -> List[torch.Tensor]:
+        result = self.encode(input)[0]
+        
+        return result
+    
+
+
+# define the LightningModule
+class LightningSummaryFC(L.LightningModule):
+    def __init__(self, in_dim: int, num_layers: int, hidden_dims: int, output_dims: int, lr: float = 1e-3, activation: str = 'relu', weight_decay: float = 0, loss_class=nn.MSELoss):
+        super().__init__()
+
+        self.save_hyperparameters()
+        self.in_dim = in_dim
+        self.num_layers = num_layers
+        self.hidden_dims = hidden_dims
+        self.output_dims = output_dims
+        self.lr = lr
+        self.weight_decay = weight_decay
+
+        activation_fct = nn.ReLU
+
+        if activation == 'tanh':
+            activation_fct = nn.Tanh
+
+        if activation == 'sigmoid':
+            activation_fct = nn.Sigmoid
+
+        # construct sequential
+        layers = [nn.Flatten(), nn.Linear(in_dim, hidden_dims), activation_fct()]
+        for i in range(num_layers):
+            layers.append(nn.Linear(hidden_dims, hidden_dims))
+            layers.append(activation_fct())
+
+        layers.append(nn.Linear(hidden_dims, output_dims))
+
+        self.network = nn.Sequential(*layers)
+
+        self.loss = loss_class()
+
+    def training_step(self, batch, batch_idx):
+
+        param, img = batch
+        param_hat = self.network(img)
+
+        loss = self.loss(param, param_hat)
+
+        self.log("train_loss", loss)
+        return loss
+    
+    def validation_step(self, batch):
+
+        param, img = batch
+        param_hat = self.network(img)
+
+        loss = self.loss(param, param_hat)
+
+        self.log("val_loss", loss)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        return optimizer
+    
+    def latent(self, input: torch.Tensor) -> List[torch.Tensor]:
+        
+        for module in self.network[:-1]:
+            input = module(input)
+        
+        return input
+    
+
+class LightningSummaryConv(L.LightningModule):
+    def __init__(self, in_channels: int, output_dims: int, hidden_dims: List = None, lr: float = 1e-3, activation: str = 'relu', weight_decay: float = 0, loss_class=nn.MSELoss):
+        super().__init__()
+
+        modules = []
+        if hidden_dims is None:
+            hidden_dims = [32, 64, 128, 256, 512]
+
+        # Build Encoder
+        for h_dim in hidden_dims:
+            modules.append(
+                nn.Sequential(
+                    nn.Conv2d(in_channels, out_channels=h_dim,
+                              kernel_size= 3, stride= 2, padding  = 1),
+                    nn.BatchNorm2d(h_dim),
+                    nn.LeakyReLU())
+            )
+            in_channels = h_dim
+
+        modules.append(nn.Flatten())
+        modules.append(nn.Linear(hidden_dims[-1]*4, hidden_dims[-1]*4))
+        modules.append(nn.LeakyReLU())
+        modules.append(nn.Linear(hidden_dims[-1]*4, output_dims))
+        self.network = nn.Sequential(*modules)
+
+        self.save_hyperparameters()
+        self.in_channels = in_channels
+        self.hidden_dims = hidden_dims
+        self.output_dims = output_dims
+        self.lr = lr
+        self.weight_decay = weight_decay
+
+        self.loss = loss_class()
+
+    def training_step(self, batch, batch_idx):
+
+        param, img = batch
+        param_hat = self.network(img)
+
+        loss = self.loss(param, param_hat)
+
+        self.log("train_loss", loss)
+        return loss
+    
+    def validation_step(self, batch):
+
+        param, img = batch
+        param_hat = self.network(img)
+
+        loss = self.loss(param, param_hat)
+
+        self.log("val_loss", loss)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        return optimizer
+    
+    def latent(self, input: torch.Tensor) -> List[torch.Tensor]:
+        
+        for module in self.network[:-2]:
+            input = module(input)
+        
+        return input
