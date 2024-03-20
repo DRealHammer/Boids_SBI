@@ -18,6 +18,29 @@ class RandomZeroChannel():
         x[:, self.idx] = x[:, self.idx] * (torch.rand(len(x)) > self.p)[:, None]
         return x
 
+
+def buildDataTranform(random_flip=False, blurring=False, zero_channel=False, apply_to_tensor_fct=None):
+
+    t = []
+
+    if random_flip:
+        t.append(transforms.RandomHorizontalFlip(p=0.5))
+        t.append(transforms.RandomVerticalFlip(p=0.5))
+
+    if blurring:
+        t.append(transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.5))
+
+    t.append(transforms.ToTensor())
+
+    if zero_channel:
+        t.append(RandomZeroChannel(2, p=0.5))
+
+    if apply_to_tensor_fct is not None:
+        t.append(apply_to_tensor_fct)
+
+    return transforms.Compose(t)
+    
+
 simple_train_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(p=0.5),
     transforms.RandomVerticalFlip(p=0.5),
