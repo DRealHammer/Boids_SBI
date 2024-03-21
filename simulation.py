@@ -227,7 +227,7 @@ class BoidSimulation:
             display(HTML(ani.to_jshtml()))
 
 
-    def finalStateImage(self, filename):
+    def finalStateImage(self, filename=None):
         pxls = np.floor(self.positions).astype(int)
         speed = np.linalg.norm(self.velocities, axis=1)
         tray = np.floor((pxls + 0.5) - self.velocities / speed[:, None]).astype(int)
@@ -264,9 +264,15 @@ class BoidSimulation:
                 mask = mask.reshape(x.shape)
 
                 board[x[mask], y[mask], 2] = 255
-
+ 
         the_image = Image.fromarray(board)
-        the_image.save(filename)
+        
+        if filename is not None:
+            the_image.save(filename)
+
+        return the_image
+
+
 
 def createDataset(foldername, N_simulations, space_size=64):
     
