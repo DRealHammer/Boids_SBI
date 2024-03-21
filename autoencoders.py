@@ -246,6 +246,10 @@ class LightningSummaryFC(L.LightningModule):
     def training_step(self, batch, batch_idx):
 
         param, img = batch
+
+        if self.output_dims == 4:
+            param = param[:, [2, 3, 4, 5]]
+
         param_hat = self.network(img)
 
         loss = self.loss(param, param_hat)
@@ -256,6 +260,10 @@ class LightningSummaryFC(L.LightningModule):
     def validation_step(self, batch):
 
         param, img = batch
+
+        if self.output_dims == 4:
+            param = param[:, [2, 3, 4, 5]]
+
         param_hat = self.network(img)
 
         loss = self.loss(param, param_hat)
@@ -312,6 +320,9 @@ class LightningSummaryConv(L.LightningModule):
     def training_step(self, batch, batch_idx):
 
         param, img = batch
+        if self.output_dims == 4:
+            param = param[:, [2, 3, 4, 5]]
+
         param_hat = self.network(img)
 
         loss = self.loss(param, param_hat)
@@ -322,6 +333,9 @@ class LightningSummaryConv(L.LightningModule):
     def validation_step(self, batch):
 
         param, img = batch
+        if self.output_dims == 4:
+            param = param[:, [2, 3, 4, 5]]
+
         param_hat = self.network(img)
 
         loss = self.loss(param, param_hat)
