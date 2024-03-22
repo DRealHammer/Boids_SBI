@@ -18,7 +18,7 @@ class AffineCouplingLayer(torch.nn.Module):
         self.condition_size = condition_size
 
         self.translation = torch.nn.Sequential(
-            torch.nn.Linear(self.upper +self.condition_size, hidden_size),
+            torch.nn.Linear(self.upper + self.condition_size, hidden_size),
             torch.nn.ReLU(),
             torch.nn.Linear(hidden_size, hidden_size),
             torch.nn.ReLU(),
@@ -96,7 +96,7 @@ class AffineCouplingLayer(torch.nn.Module):
 
 
 class LightningRealNVP(L.LightningModule):
-    def __init__(self, input_size: int, hidden_size: int, blocks: int, condition_size: int = 0, lr=1e-3, autoencoder: LightningVAE = None):
+    def __init__(self, input_size: int, hidden_size: int, blocks: int, condition_size: int = 0, lr=1e-3, encoder: L.LightningModule = None):
         super().__init__()
 
         assert(hidden_size > input_size)
@@ -107,10 +107,10 @@ class LightningRealNVP(L.LightningModule):
         self.condition_size = condition_size
         self.lr = lr
 
-        self.autoencoder = autoencoder
-        self.autoencoder.requires_grad_(False)
+        self.encoder = encoder
+        self.encoder.requires_grad_(False)
 
-        self.save_hyperparameters(ignore=['autoencoder'])
+        self.save_hyperparameters(ignore=['encoder'])
 
 
         self.coupling_blocks = torch.nn.ModuleList([AffineCouplingLayer(self.input_size,self.hidden_size, self.condition_size) for i in range(self.blocks-1)])
@@ -142,7 +142,7 @@ class LightningRealNVP(L.LightningModule):
 
     def training_step(self, batch):
         x, conditions = batch    
-        conditions = self.autoencoder.encode(conditions)
+        conditions = self.encoder.latent(conditions)
                             
         size = x.shape[0]
         z = x
@@ -160,7 +160,7 @@ class LightningRealNVP(L.LightningModule):
     
     def validation_step(self, batch) -> torch.Tensor:
         x, conditions = batch    
-        conditions = self.autoencoder.encode(conditions)
+        conditions = self.encoder.latent(conditions)
                             
         size = x.shape[0]
         z = x
