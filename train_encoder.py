@@ -43,7 +43,7 @@ if __name__ == '__main__':
         exit()
 
     if args.valid_folder is not None and not os.path.exists(args.valid_folder):
-        print(f'Provided folder {args.train_folder} does not seem to exist!')
+        print(f'Provided folder {args.valid_folder} does not seem to exist!')
         exit()
 
     training_time = 0
@@ -90,7 +90,7 @@ if __name__ == '__main__':
         if len(args.model) == 2:
             predict_size = 8
         else:
-            predict_size = int(args.model[2:])
+            predict_size = int(args.model[4:])
         
         model = LightningSummaryConv(3, predict_size)
         model_name = f'CONV{predict_size}'
@@ -108,12 +108,13 @@ if __name__ == '__main__':
     model_folder = os.path.join(models_dir, model_name)
     os.mkdir(model_folder)
 
-    os.mkdir(os.path.join(model_folder, 'encoder'))
+    encoder_folder = f'{model_folder}/encoder'
+    os.mkdir(encoder_folder)
 
 
     # load datasets
 
-    train_dataset = BoidImagesDataset('boid_data', transform=buildDataTranform(random_flip=True, zero_channel=True, blurring=True))
+    train_dataset = BoidImagesDataset(args.train_folder, transform=buildDataTranform(random_flip=True, zero_channel=True, blurring=True))
     train_loader = DataLoader(train_dataset, batch_size=20, shuffle=True, num_workers=4, persistent_workers=True)
 
 
@@ -126,10 +127,16 @@ if __name__ == '__main__':
 
 
         validation_checkpoint = ModelCheckpoint(monitor='val_loss', filename='{epoch}-{val_loss:.2f}')
-        trainer = L.Trainer(max_time={'minutes': training_time % 60, 'hours': training_time // 60}, callbacks=[validation_checkpoint], default_root_dir=model_folder)
+        trainer = L.Trainer(max_time={'minutes': training_time % 60, 'hours': training_time // 60}, callbacks=[validation_checkpoint], default_root_dir=encoder_folder)
         trainer.fit(model, train_loader, valid_loader)
 
     else:
 
-        trainer = L.Trainer(max_time={'minutes': training_time % 60, 'hours': training_time // 60}, default_root_dir=model_folder)
+        trainer = L.Trainer(max_time={'minutes': training_time % 60, 'hours': training_time // 60}, default_root_dir=encoder_folder)
         trainer.fit(model, train_loader)
+
+    logging_folder = f'{model_folder}/lightning_logs'
+    ckpt_file = [file for file in os.listdir(logging_folder) if file.endswith('ckpt')][0]
+
+    ckpt_file_full = f'{model_folder}/lightning_logs/{ckpt_file}'
+    os.rename(ckpt_file_full, f'{encoder_folder}/{ckpt_file}')
