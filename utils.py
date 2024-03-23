@@ -62,7 +62,7 @@ valid_transform = transforms.Compose([
 class BoidImagesDataset(Dataset):
     """Boid Images dataset."""
 
-    def __init__(self, root_dir, transform=None, use_index=np.ones(8, dtype=bool)):
+    def __init__(self, root_dir, transform=None, use_index=np.ones(8, dtype=bool), normalize=False):
         """
         Arguments:
             root_dir (string): Simulation Directory with a csv 'params.csv' and a folder with all images.
@@ -76,6 +76,11 @@ class BoidImagesDataset(Dataset):
         self.transform = transform
 
         self.use_index = use_index
+        self.normalize = normalize
+
+
+        self.params_mean = np.array([275, 2.5, 2.5, 2, 4, 20, 32, 2, 4])
+        self.params_scale = np.array([500, 5, 4, 4, 8, 4, 64, 64/8.0]) - self.params_mean
 
     def __len__(self):
         return len(self.params)
@@ -88,6 +93,9 @@ class BoidImagesDataset(Dataset):
         image = Image.open(img_name)
         params = self.params.iloc[idx]
         params = np.array([params], dtype=np.float32).reshape(-1)[self.use_index]
+
+        if self.normalize:
+            params = (params - self.params_mean ) / self.params_scale
 
         if self.transform:
             image = self.transform(image)
