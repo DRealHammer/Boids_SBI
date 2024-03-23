@@ -62,7 +62,7 @@ valid_transform = transforms.Compose([
 class BoidImagesDataset(Dataset):
     """Boid Images dataset."""
 
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, transform=None, use_index=np.ones(8, dtype=bool)):
         """
         Arguments:
             root_dir (string): Simulation Directory with a csv 'params.csv' and a folder with all images.
@@ -75,6 +75,8 @@ class BoidImagesDataset(Dataset):
         self.root_dir = root_dir
         self.transform = transform
 
+        self.use_index = use_index
+
     def __len__(self):
         return len(self.params)
 
@@ -85,10 +87,19 @@ class BoidImagesDataset(Dataset):
         img_name = f'{self.root_dir}/images/img{idx}.png'
         image = Image.open(img_name)
         params = self.params.iloc[idx]
-        params = np.array([params], dtype=np.float32).reshape(-1)
+        params = np.array([params], dtype=np.float32).reshape(-1)[self.use_index]
 
         if self.transform:
             image = self.transform(image)
 
         return [params, image]
         #return {'image': image, 'params': params}
+    
+import re
+def get_folder_feature_index(foldername):
+    indices = re.findall(r'\d+')[0]
+    res = torch.zeros(len(indices), dtype=bool)
+    for i, index in enumerate(indices):
+        res[i] = index == '1'
+
+    return res
