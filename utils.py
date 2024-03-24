@@ -79,8 +79,8 @@ class BoidImagesDataset(Dataset):
         self.normalize = normalize
 
 
-        self.params_mean = np.array([275, 2.5, 2.5, 2, 4, 20, 32, 2, 4])
-        self.params_scale = np.array([500, 5, 4, 4, 8, 4, 64, 64/8.0]) - self.params_mean
+        self.params_mean = np.array([275, 2.5, 2.5, 2, 4, 20, 32, 4], dtype= np.float32)
+        self.params_scale = np.array([500, 5, 4, 4, 8, 4, 64, 64/8.0], dtype= np.float32) - self.params_mean
 
     def __len__(self):
         return len(self.params)
@@ -96,7 +96,7 @@ class BoidImagesDataset(Dataset):
 
         if self.normalize:
             params = (params - self.params_mean ) / self.params_scale
-
+            
         if self.transform:
             image = self.transform(image)
 
