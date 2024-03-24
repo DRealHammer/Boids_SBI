@@ -286,11 +286,12 @@ class LightningSummaryFC(L.LightningModule):
 class LightningSummaryConv(L.LightningModule):
     def __init__(self, in_channels: int, output_dims: int, hidden_dims: List = None, lr: float = 1e-3, activation: str = 'relu', weight_decay: float = 0, loss_class=nn.MSELoss):
         super().__init__()
-
         modules = []
         if hidden_dims is None:
             hidden_dims = [32, 64, 128, 256, 512]
 
+        self.save_hyperparameters()
+        
         # Build Encoder
         for h_dim in hidden_dims:
             modules.append(
@@ -308,7 +309,6 @@ class LightningSummaryConv(L.LightningModule):
         modules.append(nn.Linear(hidden_dims[-1]*4, output_dims))
         self.network = nn.Sequential(*modules)
 
-        self.save_hyperparameters()
         self.in_channels = in_channels
         self.hidden_dims = hidden_dims
         self.output_dims = output_dims
