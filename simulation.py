@@ -10,6 +10,9 @@ from PIL import Image
 import os
 import pandas as pd
 
+from multiprocessing import Process
+from threading import Thread
+
 class BoidSimulation:
 
     def __init__(self, space_length = 100):
@@ -273,6 +276,21 @@ class BoidSimulation:
         return the_image
 
 
+def runSimulationStoreImage(space_size, boids, obst, sep, coh, ali, avo, vis_rang, av_rang, foldername, i):
+    boid_simulation = BoidSimulation(space_size)
+    boid_simulation.placeBoids(boids, 5)
+    boid_simulation.placeObstacles(obst, 5, 10)
+    boid_simulation.simulate(separation=sep,
+                            coherence=coh,
+                            alignment=ali,
+                            avoidance=avo,
+                            num_time_steps=500,
+                            visual_range=vis_rang,
+                            avoid_range=av_rang,
+                            animate=False,
+                            dt=0.1)
+
+    boid_simulation.finalStateImage(f'{foldername}/images/img{i}.png')
 
 def createDataset(foldername, N_simulations, space_size=64):
     
@@ -299,9 +317,7 @@ def createDataset(foldername, N_simulations, space_size=64):
         L_coherence = np.random.uniform(0, 4, N_simulations)
         L_aligment = np.random.uniform(0, 8, N_simulations)
 
-        # TODO try with flexible avoidance
-        L_avoidance = np.random.uniform(0, 4, N_simulations)
-        L_avoidance[:] = 20
+        L_avoidance = np.random.uniform(7, 25, N_simulations)
 
         visual_range = np.random.uniform(0, space_size, N_simulations)
         avoid_range = np.random.uniform(0, space_size/8, N_simulations)
@@ -320,21 +336,21 @@ def createDataset(foldername, N_simulations, space_size=64):
 
         df.to_csv(f'{foldername}/params.csv', index=False)
 
-    for i, (boids, obst, sep, coh, ali, vis_rang, av_rang) in enumerate(zip(N_boids[start_index:], N_obstacles[start_index:], L_separation[start_index:], L_coherence[start_index:], L_aligment[start_index:], visual_range[start_index:], avoid_range[start_index:]), start_index):
-        boid_simulation = BoidSimulation(space_size)
-        boid_simulation.placeBoids(boids, 5)
-        boid_simulation.placeObstacles(obst, 5, 10)
-        boid_simulation.simulate(separation=sep,
-                                coherence=coh,
-                                alignment=ali,
-                                avoidance=20,
-                                num_time_steps=500,
-                                visual_range=vis_rang,
-                                avoid_range=av_rang,
-                                animate=False,
-                                dt=0.1)
 
-        boid_simulation.finalStateImage(f'{foldername}/images/img{i}.png')
+    processes: list[Thread] = []
+    max_processes = 100
+    for i, (boids, obst, sep, coh, ali, avo, vis_rang, av_rang) in enumerate(zip(N_boids[start_index:], N_obstacles[start_index:], L_separation[start_index:], L_coherence[start_index:], L_aligment[start_index:], L_avoidance[start_index:], visual_range[start_index:], avoid_range[start_index:]), start_index):
+        
+        if len(processes) == max_processes:
+            processes.clear()
+
+        proc = Thread(target=runSimulationStoreImage, args=(space_size, boids, obst, sep, coh, ali, avo, vis_rang, av_rang, foldername, i))
+        proc.start()
+        processes.append(proc)
+
+        if len(processes) == max_processes:
+            for proc in processes:
+                proc.join()
 
 import sys
 if __name__ == '__main__':
