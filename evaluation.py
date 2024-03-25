@@ -20,7 +20,8 @@ from tqdm import tqdm
 import os
 from scipy.stats import norm
 from simulation import BoidSimulation
-import seaborn as sns
+
+from PIL import Image
 
 parameter_names = [
         'N_boids',
@@ -55,7 +56,7 @@ parameter_variables = [
     [1.5, 2, 3.5], # l_seperation
     [0.5, 2, 3.5], # l_coherence
     [1, 4, 7], # l_alignment
-    [2, 10, 20], # l_avoidance
+    [8, 15, 25], # l_avoidance
     [5, 10, 20], # visual_range
     [2, 5, 7] # avoid_range
 ]
@@ -65,14 +66,12 @@ def create_ground_truth_one_not_fixed(idx):
     Create three ground truth instances were all parameters are fixed exept the one with index idx, were we use the values from variables
     """
     # parameters which are fixed (expect the one which we change later): N_boids,N_obstacles,L_separation,L_coherence,L_aligment,L_avoidance,visual_range,avoid_range. 
-    p = [100, 3, 3, 2, 7, 20, 10, 5]
+    #p = [100, 3, 3, 2, 7, 20, 10, 5]
+    p = [275, 2.5, 2.5, 2, 4, 20, 32, 4]
 
     images = torch.zeros((3,3,64,64))
     parameters = torch.zeros((3,8))
 
-    boid_simulation = BoidSimulation(space_length=64)
-    boid_simulation.placeBoids(p[0], 5)  
-    boid_simulation.placeObstacles(p[1], 5, 10)
 
     for i in range(3):
         p[idx] = parameter_variables[idx][i]  # change the parameter which is not fixed
@@ -80,6 +79,10 @@ def create_ground_truth_one_not_fixed(idx):
         parameters[i] = torch.tensor(p,dtype=float)
 
         print("simulation...")
+
+        boid_simulation = BoidSimulation(space_length=64)
+        boid_simulation.placeBoids(int(p[0]), 5)  
+        boid_simulation.placeObstacles(int(p[1]), 5, 10)
 
         boid_simulation.simulate(separation=p[2],
                                     coherence=p[3],
@@ -286,8 +289,8 @@ def create_global_pit(num_parameters, P_i_values, r_i_alphas, alphas, path_to_ev
         ax[i].set_title(parameter_names[param_indices[i]])
         ax[i].set_aspect(1)
         ax[i].fill_between(alphas, (alphas-0.05), (alphas+0.05), color='b', alpha=.1)
-        ax[i].set_xlabel(r"$\alpha")
-        ax[i].set_ylabel(r"empirical $r_{i,\alpha}")
+        ax[i].set_xlabel(r"$\alpha$")
+        ax[i].set_ylabel(r"empirical $r_{i,\alpha}$")
 
         inset_axes = ax[i].inset_axes(bounds=[0.5,0,0.5,0.2])
         inset_axes.hist(r_i_alphas[i], bins=10)
@@ -304,14 +307,48 @@ def create_global_pit(num_parameters, P_i_values, r_i_alphas, alphas, path_to_ev
 
 
     ax.plot(alphas, alphas, color='black', linestyle='--')
-    ax.set_xlabel(r"$\alpha")
-    ax.set_ylabel(r"empirical $r_{i,\alpha}")
+    ax.set_xlabel(r"$\alpha$")
+    ax.set_ylabel(r"empirical $r_{i,\alpha}$")
     ax.fill_between(alphas, (alphas-0.05), (alphas+0.05), color='g', alpha=.2)
     ax.legend()
 
     plt.title('Global PIT of boid parameters')
 
     plt.savefig(f"{path_to_evaluation_folder}/global_pit_all_in_one_num_Param_{num_parameters}.png")
+
+
+def create_resimulation_grid(model: LightningRealNVP, img, folder, idx, grid_size=3):
+
+
+    condition = model.encoder.latent(img.reshape(1,3,64,64)) # transform to latent space
+    condition = condition.reshape(-1).to(device) 
+    num_samples = grid_size**2 - 1
+    noise = torch.randn(num_samples, 8).to(device)
+    sampledParam= model_flow.inverse(noise, condition).detach().cpu().numpy()
+
+    images = np.zeros((num_samples+1,3,64,64), dtype=np.uint8)
+    images[0] = img
+    for i, p in enumerate(sampledParam):
+        boid_simulation = BoidSimulation(space_length=64)
+        boid_simulation.placeBoids(int(p[0]), 5)  
+        boid_simulation.placeObstacles(int(p[1]), 5, 10)
+
+        boid_simulation.simulate(separation=p[2],
+                                    coherence=p[3],
+                                    alignment= p[4],
+                                    avoidance= p[5],
+                                    visual_range=p[6],
+                                    avoid_range= p[7],
+                                    animate=False,
+                                    num_time_steps=500,
+                                    dt=0.1)
+        
+        images[i+1] = valid_transform(boid_simulation.finalStateImage())
+
+    big_img = images.reshape(grid_size, grid_size, 3, 64, 64).swapaxes(2, 4).swapaxes(0, 2).swapaxes(0, 1).reshape(grid_size*64, grid_size*64, 3)
+    print(big_img)
+    print(big_img.shape)
+    Image.fromarray(big_img).save(f'{folder}/resim{idx}.png')
 
 if __name__ == '__main__':
 
@@ -394,7 +431,7 @@ if __name__ == '__main__':
     path_to_evaluation_folder = f"models/{args.model_folder}/evaluation"
 
     # Evaluation method 1 - Local pair plot
-        
+
     print("create local pair plot")
     create_local_pair_plot(num_parameters=num_parameters, dataset=evaluation_dataset, model_encoder=model_encoder, model_flow=model_flow, path_to_evaluation_folder= path_to_evaluation_folder)
 
@@ -406,3 +443,14 @@ if __name__ == '__main__':
     
     print("create global pit plot")
     create_global_pit(num_parameters,P_i_values=P_i_values, r_i_alphas=r_i_alphas, alphas=alphas, path_to_evaluation_folder=path_to_evaluation_folder)
+
+    '''
+
+    print('Create Resimulation images')
+    for i, (params, img) in enumerate(evaluation_dataset):
+        if i == 3:
+            break
+
+        create_resimulation_grid(model_flow, img, path_to_evaluation_folder, i, 2)
+
+    '''

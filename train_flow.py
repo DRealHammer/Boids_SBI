@@ -159,10 +159,12 @@ if __name__ == '__main__':
     hidden_dim = args.hidden_size
     if hidden_dim is None:
         hidden_dim = 200
+    hidden_dim = int(hidden_dim)
 
     blocks = args.blocks
     if blocks is None:
         blocks = 5
+    blocks = int(blocks)
 
     flow = LightningRealNVP(input_size=data_dim, hidden_size=hidden_dim, blocks=blocks, condition_size=cond_size, encoder=encoder)
 

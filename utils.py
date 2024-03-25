@@ -90,7 +90,7 @@ class BoidImagesDataset(Dataset):
             idx = idx.tolist()
 
         img_name = f'{self.root_dir}/images/img{idx}.png'
-        image = Image.open(img_name)
+        image = Image.open(img_name).convert('RGB').resize((64, 64))
         params = self.params.iloc[idx]
         params = np.array([params], dtype=np.float32).reshape(-1)[self.use_index]
 

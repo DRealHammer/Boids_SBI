@@ -72,7 +72,7 @@ if __name__ == '__main__':
         else:
             latent_size = int(args.model[2:])
         
-        model = LightningVAE(3, latent_size)
+        model = LightningVAE(3, latent_size, lr=0.00001)
         model_name = f'AE{latent_size}'
 
     # fully connected
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     if len(previous_versions) > 0:
         model_name = f'{model_name}_{len(previous_versions)}'
 
-    model_folder = os.path.join(models_dir, model_name)
+    model_folder = f'{models_dir}/{model_name}'
     os.mkdir(model_folder)
 
     encoder_folder = f'{model_folder}/encoder'
@@ -114,25 +114,27 @@ if __name__ == '__main__':
 
     # load datasets
 
-    train_dataset = BoidImagesDataset(args.train_folder, transform=buildDataTranform(random_flip=True, zero_channel=True, blurring=True))
+    train_dataset = BoidImagesDataset(args.train_folder, transform=buildDataTranform(random_flip=True, zero_channel=True, blurring=False))
     train_loader = DataLoader(train_dataset, batch_size=20, shuffle=True, num_workers=4, persistent_workers=True)
 
 
     valid_dataset = None
     valid_loader = None
 
+    callbacks=[ModelCheckpoint()]
     if args.valid_folder is not None:
         valid_dataset = BoidImagesDataset(args.valid_folder, transform=buildDataTranform())
         valid_loader = DataLoader(valid_dataset, batch_size=20, shuffle=False, num_workers=4, persistent_workers=True)
 
 
         validation_checkpoint = ModelCheckpoint(monitor='val_loss', filename='{epoch}-{val_loss:.2f}')
-        trainer = L.Trainer(max_time={'minutes': training_time % 60, 'hours': training_time // 60}, callbacks=[validation_checkpoint], default_root_dir=encoder_folder)
+        callbacks.append(validation_checkpoint)
+        trainer = L.Trainer(max_time={'minutes': training_time % 60, 'hours': training_time // 60}, callbacks=callbacks, default_root_dir=encoder_folder)
         trainer.fit(model, train_loader, valid_loader)
 
     else:
 
-        trainer = L.Trainer(max_time={'minutes': training_time % 60, 'hours': training_time // 60}, default_root_dir=encoder_folder)
+        trainer = L.Trainer(max_time={'minutes': training_time % 60, 'hours': training_time // 60}, callbacks=callbacks, default_root_dir=encoder_folder)
         trainer.fit(model, train_loader)
 
     logging_folder = f'{model_folder}/lightning_logs'
